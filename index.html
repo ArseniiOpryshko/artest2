@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR AR Test</title>
+</head>
+
+<body>
+    <button id="start-ar">Start AR</button>
+    <script>
+        document.getElementById("start-ar").addEventListener("click", async () => {
+            if (!navigator.xr) {
+                alert("WebXR не поддерживается в этом браузере!");
+                return;
+            }
+
+            const supported = await navigator.xr.isSessionSupported("immersive-ar");
+            if (!supported) {
+                alert("Ваше устройство не поддерживает AR-сессии!");
+                return;
+            }
+
+            try {
+                const session = await navigator.xr.requestSession("immersive-ar", {
+                    requiredFeatures: ["hit-test", "dom-overlay"],
+                    domOverlay: { root: document.body }
+                });
+
+                console.log("🎉 AR-сессия запущена!", session);
+            } catch (error) {
+                console.error("Ошибка запуска WebXR:", error);
+            }
+        });
+    </script>
+</body>
+
+</html>
