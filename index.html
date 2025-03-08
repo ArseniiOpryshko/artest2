@@ -1,17 +1,56 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ar.js@1.7.2/aframe/build/aframe-ar.min.js"></script>
+    <title>AR.js A-Frame Location-based</title>
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
 </head>
+<button id="startAR">Start AR</button>
 
-<body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs>
-        <a-marker preset="hiro">
-            <a-box position="0 0.5 0" material="color: red;"></a-box>
-        </a-marker>
-        <a-entity camera></a-entity>
-    </a-scene>
+<body>
+
 </body>
+<script>
+    async function startAR() {
+        let webxrPolyfill = null;
+
+        if (!navigator.xr) {
+            alert("❌ WebXR not supported in this browser. using polyfill");
+            webxrPolyfill = new WebXRPolyfill();
+        }
+
+        if (navigator.xr) {
+            alert("✅ WebXR is supported!");
+
+            try {
+                // Check if AR mode is available
+                const supported = await navigator.xr.isSessionSupported('inline');
+
+                if (!supported) {
+                    alert("❌ AR is not supported on this device/browser.");
+                    return;
+                }
+
+                alert("✅ AR is supported!");
+
+                // Start AR session
+                const session = await navigator.xr.requestSession('inline');
+                alert("🎉 AR session started!");
+
+                // Handle session end
+                session.addEventListener("end", () => {
+                    alert("👋 AR session ended.");
+                });
+
+            } catch (error) {
+                alert("❌ Error starting AR session:", error);
+            }
+        }
+    }
+
+    // Call the function when user interacts (e.g., button click)
+    document.getElementById("startAR").addEventListener("click", startAR);
+
+</script>
 
 </html>
