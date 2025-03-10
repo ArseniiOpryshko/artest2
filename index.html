@@ -11,214 +11,134 @@
         }
 
         canvas {
-            width: 100%;
-            height: 100%;
             display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
-        button {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
+            width: 100vw;
+            height: 100vh;
         }
     </style>
 </head>
+<button id="startAR">Start AR</button>
+<canvas></canvas>
 
 <body>
-    <button id="startAR">Start WebAR</button>
-    <canvas id="xrCanvas"></canvas>
 
+</body>
+<script>
+    async function startAR() {
+        let webxrPolyfill = null;
 
-    <body>
+        if (!navigator.xr) {
+            alert(" WebXR not supported in this browser. using polyfill");
+            webxrPolyfill = new WebXRPolyfill();
+        }
 
-    </body>
-    <script>
-        async function startAR() {
-            let webxrPolyfill = null;
+        if (navigator.xr) {
+            alert(" WebXR is supported!");
 
-            if (!navigator.xr) {
-                alert("❌ WebXR not supported in this browser. using polyfill");
-                webxrPolyfill = new WebXRPolyfill();
-            }
-
-            if (navigator.xr) {
-                alert("✅ WebXR is supported!");
-
-                try {
-                    // Check if AR mode is available
-                    const supported = await navigator.xr.isSessionSupported('inline');
-
-                    if (!supported) {
-                        alert("❌ AR is not supported on this device/browser.");
-                        return;
-                    }
-
-                    alert("✅ AR is supported!");
-
-                    // Start AR session
-                    const session = await navigator.xr.requestSession("inline", {
-                        requiredFeatures: ["local"]
-                    });
-                    alert("🎉 AR session started!");
-
-                    runSession(xrSession);
-
-                    // Handle session end
-                    xrSession.addEventListener("end", () => {
-                        alert("👋 AR session ended.");
-                        stopRendering();
-                    });
-
-
-
-
-                } catch (error) {
-                    alert("❌ Error starting AR session:", error);
+            try {
+                const supported = await navigator.xr.isSessionSupported('inline');
+                if (!supported) {
+                    alert(" AR is not supported on this device/browser.");
+                    return;
                 }
+
+                alert(" AR is supported!");
+
+                const session = await createInlineSession(navigator.xr);
+                alert(" AR session started!");
+
+                runSession(session)
+
+            } catch (error) {
+                alert(" Error starting AR session:", error);
             }
         }
+    }
 
 
+    async function createInlineSession(xr) {
+        session = await xr.requestSession("inline", {
+            optionalFeatures: ["unbounded"],
+        });
+        return session;
+    }
 
-        async function runSession(session) {
-            const canvas = document.getElementById("xrCanvas");
-            gl = canvas.getContext("webgl", { xrCompatible: true });
+    async function runSession(session) {
+        const canvas = document.querySelector("canvas");
+        gl = canvas.getContext("webgl", { xrCompatible: true });
 
-            if (!gl) {
-                alert("❌ WebGL is not supported.");
-                return;
-            }
+        session.updateRenderState({
+            baseLayer: new XRWebGLLayer(session, gl),
+        });
 
-            console.log("✅ WebGL initialized for WebXR.");
+        referenceSpace = await session.requestReferenceSpace("unbounded").catch(() => {
+            console.warn("qwewe");
+            return session.requestReferenceSpace("local");
+        });
 
-            // Set up WebXR rendering
-            session.updateRenderState({
-                baseLayer: new XRWebGLLayer(session, gl)
-            });
+        animationFrameRequestID = session.requestAnimationFrame(onDrawFrame);
+    }
 
-            // Request reference space
-            xrReferenceSpace = await session.requestReferenceSpace("local");
+    function onDrawFrame(time, frame) {
+        animationFrameRequestID = session.requestAnimationFrame(onDrawFrame);
 
-            setupCube();
+        let pose = frame.getViewerPose(referenceSpace);
+        if (!pose) return;
 
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // Start rendering loop
-            animationFrameRequestID = session.requestAnimationFrame(onDrawFrame);
-        }
+        drawScene();
+    }
 
-        function setupCube() {
-            // Cube vertices (x, y, z)
-            const cubeVertices = new Float32Array([
-                -0.1, -0.1, -0.1, 1, 0, 0,
-                0.1, -0.1, -0.1, 0, 1, 0,
-                0.1, 0.1, -0.1, 0, 0, 1,
-                -0.1, 0.1, -0.1, 1, 1, 0,
-                -0.1, -0.1, 0.1, 1, 0, 1,
-                0.1, -0.1, 0.1, 0, 1, 1,
-                0.1, 0.1, 0.1, 1, 1, 1,
-                -0.1, 0.1, 0.1, 0, 0, 0
-            ]);
+    function drawScene() {
+        // Simple WebGL object: a rotating triangle
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
 
-            // Cube indices
-            const cubeIndices = new Uint16Array([
-                0, 1, 2, 2, 3, 0,
-                4, 5, 6, 6, 7, 4,
-                0, 1, 5, 5, 4, 0,
-                2, 3, 7, 7, 6, 2,
-                1, 2, 6, 6, 5, 1,
-                3, 0, 4, 4, 7, 3
-            ]);
+        // Set up a simple rotating triangle (replace with actual 3D objects)
+        const vertices = new Float32Array([
+            0.0, 0.5, 0.0,
+            -0.5, -0.5, 0.0,
+            0.5, -0.5, 0.0,
+        ]);
 
-            const vertexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, cubeVertices, gl.STATIC_DRAW);
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-            const indexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cubeIndices, gl.STATIC_DRAW);
-
-            const vsSource = `
-                attribute vec3 position;
-                attribute vec3 color;
-                varying vec3 vColor;
-                uniform mat4 modelMatrix;
-                void main() {
-                    gl_Position = modelMatrix * vec4(position, 1.0);
-                    vColor = color;
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vertexShader, `
+                attribute vec3 coordinates;
+                void main(void) {
+                    gl_Position = vec4(coordinates, 1.0);
                 }
-            `;
-            const fsSource = `
-                precision mediump float;
-                varying vec3 vColor;
-                void main() {
-                    gl_FragColor = vec4(vColor, 1.0);
+            `);
+        gl.compileShader(vertexShader);
+
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fragmentShader, `
+                void main(void) {
+                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
                 }
-            `;
+            `);
+        gl.compileShader(fragmentShader);
 
-            cubeShaderProgram = createShaderProgram(vsSource, fsSource);
-            gl.useProgram(cubeShaderProgram);
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
 
-            const positionLocation = gl.getAttribLocation(cubeShaderProgram, "position");
-            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 6 * 4, 0);
-            gl.enableVertexAttribArray(positionLocation);
+        const coord = gl.getAttribLocation(shaderProgram, "coordinates");
+        gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(coord);
 
-            modelMatrixLocation = gl.getUniformLocation(cubeShaderProgram, "modelMatrix");
-        }
-
-        function createShaderProgram(vsSource, fsSource) {
-            const vs = gl.createShader(gl.VERTEX_SHADER);
-            gl.shaderSource(vs, vsSource);
-            gl.compileShader(vs);
-
-            const fs = gl.createShader(gl.FRAGMENT_SHADER);
-            gl.shaderSource(fs, fsSource);
-            gl.compileShader(fs);
-
-            const program = gl.createProgram();
-            gl.attachShader(program, vs);
-            gl.attachShader(program, fs);
-            gl.linkProgram(program);
-
-            return program;
-        }
-
-        function onDrawFrame(time, frame) {
-            let session = frame.session;
-            session.requestAnimationFrame(onDrawFrame);
-
-            const pose = frame.getViewerPose(xrReferenceSpace);
-            if (!pose) return;
-
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            let modelMatrix = new Float32Array([
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, -1, 1
-            ]);
-
-            gl.useProgram(cubeShaderProgram);
-            gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix);
-
-            gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
-        }
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
 
 
-        function stopRendering() {
-            if (animationFrameRequestID) {
-                xrSession.cancelAnimationFrame(animationFrameRequestID);
-                animationFrameRequestID = null;
-            }
-            xrSession = null;
-        }
-        // Call the function when user interacts (e.g., button click)
-        document.getElementById("startAR").addEventListener("click", startAR);
+    document.getElementById("startAR").addEventListener("click", startAR);
 
-    </script>
+</script>
 
 </html>
