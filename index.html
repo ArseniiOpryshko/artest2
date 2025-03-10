@@ -12,10 +12,10 @@
 <body style="margin: 0; overflow: hidden;">
     <a-scene embedded arjs>
         <!-- QR-код как маркер -->
-        <a-marker id="marker" type="pattern" url="pattern-qr.patt">
+        <a-marker id="marker" preset="hiro">>
             <a-entity id="model" gltf-model="model.glb" scale="0.5 0.5 0.5" position="0 0 0"></a-entity>
         </a-marker>
-        <a-camera position="0 0 0"></a-camera>
+        <a-entity camera></a-entity>
     </a-scene>
 
     <script>
@@ -23,14 +23,14 @@
         let marker = document.getElementById("marker");
 
         marker.addEventListener("markerFound", () => {
-            console.log("Маркер найден! Позиция зафиксирована.");
+            alert("Маркер найден! Позиция зафиксирована.");
             let pos = model.getAttribute("position");  // Запоминаем позицию
             model.setAttribute("visible", true);
             model.setAttribute("savedPosition", pos);
         });
 
         marker.addEventListener("markerLost", () => {
-            console.log("Маркер потерян, но объект остается.");
+            alert("Маркер потерян, но объект остается.");
             let savedPos = model.getAttribute("savedPosition");
             model.setAttribute("position", savedPos); // Оставляем объект в той же позиции
             model.setAttribute("visible", true); // Объект остается видимым
