@@ -1,144 +1,41 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>AR.js A-Frame Location-based</title>
-    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-
-        canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR.js - QR AR с сохранением объекта</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://cdn.rawgit.com/jeromeetienne/ar.js/1.7.2/aframe/build/aframe-ar.min.js"></script>
 </head>
-<button id="startAR">Start AR</button>
-<canvas></canvas>
 
-<body>
+<body style="margin: 0; overflow: hidden;">
+    <a-scene embedded arjs>
+        <!-- QR-код как маркер -->
+        <a-marker id="marker" type="pattern" url="pattern-qr.patt">
+            <a-entity id="model" gltf-model="model.glb" scale="0.5 0.5 0.5" position="0 0 0"></a-entity>
+        </a-marker>
+        <a-camera position="0 0 0"></a-camera>
+    </a-scene>
 
+    <script>
+        let model = document.getElementById("model");
+        let marker = document.getElementById("marker");
+
+        marker.addEventListener("markerFound", () => {
+            console.log("Маркер найден! Позиция зафиксирована.");
+            let pos = model.getAttribute("position");  // Запоминаем позицию
+            model.setAttribute("visible", true);
+            model.setAttribute("savedPosition", pos);
+        });
+
+        marker.addEventListener("markerLost", () => {
+            console.log("Маркер потерян, но объект остается.");
+            let savedPos = model.getAttribute("savedPosition");
+            model.setAttribute("position", savedPos); // Оставляем объект в той же позиции
+            model.setAttribute("visible", true); // Объект остается видимым
+        });
+    </script>
 </body>
-<script>
-    async function startAR() {
-        let webxrPolyfill = null;
-
-        if (!navigator.xr) {
-            alert(" WebXR not supported in this browser. using polyfill");
-            webxrPolyfill = new WebXRPolyfill();
-        }
-
-        if (navigator.xr) {
-            alert(" WebXR is supported!");
-
-            try {
-                const supported = await navigator.xr.isSessionSupported('immersive-ar');
-                if (!supported) {
-                    alert(" AR is not supported on this device/browser.");
-                    return;
-                }
-
-                alert(" AR is supported!");
-
-                const session = await createInlineSession(navigator.xr);
-                alert(" AR session started!");
-
-                await runSession(session)
-
-            } catch (error) {
-                alert(" Error starting AR session:" + error);
-            }
-        }
-    }
-
-
-    async function createInlineSession(xr) {
-        session = await xr.requestSession("immersive-ar", {
-            optionalFeatures: ["unbounded"],
-        });
-        return session;
-    }
-
-    async function runSession(session) {
-        const canvas = document.querySelector("canvas");
-        gl = canvas.getContext("webgl", { xrCompatible: true });
-
-        session.updateRenderState({
-            baseLayer: new XRWebGLLayer(session, gl),
-        });
-
-        referenceSpace = await session.requestReferenceSpace("unbounded").catch(() => {
-            alert(" AR is supported!");
-            return session.requestReferenceSpace("local");
-        });
-
-        animationFrameRequestID = session.requestAnimationFrame(onDrawFrame);
-    }
-
-    function onDrawFrame(time, frame) {
-        animationFrameRequestID = session.requestAnimationFrame(onDrawFrame);
-
-        let pose = frame.getViewerPose(referenceSpace);
-        if (!pose) return;
-
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-        drawScene();
-    }
-
-    function drawScene() {
-        // Simple WebGL object: a rotating triangle
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-
-        // Set up a simple rotating triangle (replace with actual 3D objects)
-        const vertices = new Float32Array([
-            0.0, 0.5, 0.0,
-            -0.5, -0.5, 0.0,
-            0.5, -0.5, 0.0,
-        ]);
-
-        const vertexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertexShader, `
-                attribute vec3 coordinates;
-                void main(void) {
-                    gl_Position = vec4(coordinates, 1.0);
-                }
-            `);
-        gl.compileShader(vertexShader);
-
-        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragmentShader, `
-                void main(void) {
-                    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-                }
-            `);
-        gl.compileShader(fragmentShader);
-
-        const shaderProgram = gl.createProgram();
-        gl.attachShader(shaderProgram, vertexShader);
-        gl.attachShader(shaderProgram, fragmentShader);
-        gl.linkProgram(shaderProgram);
-        gl.useProgram(shaderProgram);
-
-        const coord = gl.getAttribLocation(shaderProgram, "coordinates");
-        gl.vertexAttribPointer(coord, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(coord);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-    }
-
-
-    document.getElementById("startAR").addEventListener("click", startAR);
-
-</script>
 
 </html>
