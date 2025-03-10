@@ -36,7 +36,7 @@
             alert(" WebXR is supported!");
 
             try {
-                const supported = await navigator.xr.isSessionSupported('inline');
+                const supported = await navigator.xr.isSessionSupported('immersive-ar');
                 if (!supported) {
                     alert(" AR is not supported on this device/browser.");
                     return;
