@@ -47,10 +47,10 @@
                 const session = await createInlineSession(navigator.xr);
                 alert(" AR session started!");
 
-                runSession(session)
+                await runSession(session)
 
             } catch (error) {
-                alert(" Error starting AR session:", error);
+                alert(" Error starting AR session:" + error);
             }
         }
     }
