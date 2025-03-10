@@ -57,7 +57,7 @@
 
 
     async function createInlineSession(xr) {
-        session = await xr.requestSession("inline", {
+        session = await xr.requestSession("immersive-ar", {
             optionalFeatures: ["unbounded"],
         });
         return session;
@@ -72,7 +72,7 @@
         });
 
         referenceSpace = await session.requestReferenceSpace("unbounded").catch(() => {
-            console.warn("qwewe");
+            alert(" AR is supported!");
             return session.requestReferenceSpace("local");
         });
 
