@@ -11,12 +11,7 @@
     <title>AR.js Летающая Модель</title>
   </head>
   <body style="margin: 0px; overflow: hidden">
-    <a-scene
-      embedded
-      arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true;"
-    >
+    <a-scene embedded arjs>
       <a-marker preset="hiro" id="marker">
         <a-entity
           id="model"
@@ -27,7 +22,6 @@
         >
         </a-entity>
       </a-marker>
-
       <a-entity camera></a-entity>
     </a-scene>
 
@@ -37,25 +31,21 @@
         let model = document.querySelector("#model");
 
         marker.addEventListener("markerFound", () => {
-          console.log("✅ Маркер найден!");
+          console.log("Маркер найден!");
 
-          // Проверяем, есть ли уже анимация, чтобы не дублировать
-          if (!model.hasAttribute("animation")) {
-            model.setAttribute(
-              "animation",
-              "property: position; from: 0 0 0; to: 0 0.3 0; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine"
-            );
-          }
+          // Добавляем анимацию полета вверх-вниз
+          model.setAttribute(
+            "animation",
+            "property: position; from: 0 0 0; to: 0 0.3 0; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine"
+          );
         });
 
         marker.addEventListener("markerLost", () => {
-          console.log("❌ Маркер потерян!");
+          console.log("Маркер потерян!");
 
-          // Удаляем анимацию только если маркер потерян
-          if (model.hasAttribute("animation")) {
-            model.removeAttribute("animation");
-            model.setAttribute("position", "0 0 0");
-          }
+          // Останавливаем анимацию, сбрасываем позицию
+          model.removeAttribute("animation");
+          model.setAttribute("position", "0 0 0");
         });
       });
     </script>
