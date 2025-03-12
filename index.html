@@ -8,7 +8,7 @@
     <title>AR.js Летающая Модель</title>
   </head>
   <body style="margin: 0px; overflow: hidden">
-    <a-scene embedded arjs>
+    <a-scene embedded arjs="sourceType: webcam; facingMode: environment;">
       <a-marker preset="hiro" id="marker">
         <a-entity
           id="model"
