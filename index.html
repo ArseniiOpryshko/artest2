@@ -13,15 +13,15 @@
   </head>
 
   <body style="margin: 0px; overflow: hidden">
-    <a-scene embedded arjs>
+    <a-scene embedded arjs renderer="logarithmicDepthBuffer: true">
       <a-marker preset="hiro" id="marker">
         <a-entity
           id="model"
           gltf-model="Idle_Paul.gltf"
           position="0 0 0"
-          rotation="270 0 0"
           scale="1 1 1"
           animation-mixer="clip: StartAr_v2"
+          rotation="270 0 0"
         ></a-entity>
       </a-marker>
 
@@ -29,25 +29,153 @@
     </a-scene>
 
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        let model = document.querySelector("#model");
-        let marker = document.querySelector("#marker");
-        let speakBtn = document.getElementById("speakBtn");
+      let marker = document.querySelector("#marker");
+      let model = document.querySelector("#model");
+      let speakBtn = document.getElementById("speakBtn");
 
-        marker.addEventListener("markerFound", () => {
-          console.log("Маркер найден!");
+      const listener = new THREE.AudioListener();
+      const sound = new THREE.Audio(listener);
+      const analyser = new THREE.AudioAnalyser(sound, 32);
+      const audioLoader = new THREE.AudioLoader();
+      let isSoundActive = false;
+      let animationFrameId;
+
+      let jawNode;
+      let lipJoints = [];
+      let openMouth = false;
+      let angle = 0;
+
+      marker.addEventListener("markerFound", () => {
+        isSoundActive = true;
+        audioLoader.load("paul.mp3", function (buffer) {
+          sound.setBuffer(buffer);
+          sound.setVolume(1.0);
+          sound.play();
         });
 
-        marker.addEventListener("markerLost", () => {
-          console.log("Маркер потерян!");
-        });
+        function goSound() {
+          if (!isSoundActive) return;
+          requestAnimationFrame(goSound);
+        }
 
-        // Speech Synthesis
+        goSound();
+        animateMouth();
 
-        const utterance = new SpeechSynthesisUtterance(
-          "Hi, I am from Japan. Can I follow you, friend?"
-        );
+        model.setAttribute("animation-mixer", "clip: StartAr_v2");
       });
+
+      marker.addEventListener("markerLost", () => {
+        isSoundActive = false; // Отключаем анализатор
+        cancelAnimationFrame(animationFrameId); // Останавливаем цикл анализа звука
+        sound.stop(); // Останавливаем воспроизведение аудио
+
+        // Устанавливаем другую анимацию для модели
+        model.setAttribute("animation-mixer", "clip: Idle_Paul");
+      });
+
+      model.addEventListener("model-loaded", () => {
+        let mesh = model.getObject3D("mesh");
+        if (!mesh) {
+          console.warn("Модель не загружена!");
+          return;
+        }
+
+        mesh.traverse((node) => {
+          if (node.isMesh) {
+            node.material.map.anisotropy = 16; // Максимальное качество
+          }
+        });
+
+        let jointNames = [
+          "LipJoints_M",
+          "upperLipJoint0_M",
+          "lowerLipJoint0_M",
+          "JawJoint_M",
+          "upperLipJoint1_R",
+          "upperLipJoint2_R",
+          "upperLipJoint3_R",
+          "upperLipJoint4_R",
+          "upperLipJoint5_R",
+          "upperLipJoint6_R",
+          "upperLipJoint7_R",
+          "upperLipJoint8_R",
+          "upperLipJoint9_R",
+          "upperLipJoint10_R",
+          "upperLipJoint1_L",
+          "upperLipJoint2_L",
+          "upperLipJoint3_L",
+          "upperLipJoint4_L",
+          "upperLipJoint5_L",
+          "upperLipJoint6_L",
+          "upperLipJoint7_L",
+          "upperLipJoint8_L",
+          "upperLipJoint9_L",
+          "upperLipJoint10_L",
+          "lowerLipJoint1_R",
+          "lowerLipJoint2_R",
+          "lowerLipJoint3_R",
+          "lowerLipJoint4_R",
+          "lowerLipJoint5_R",
+          "lowerLipJoint6_R",
+          "lowerLipJoint7_R",
+          "lowerLipJoint8_R",
+          "lowerLipJoint9_R",
+          "lowerLipJoint10_R",
+          "lowerLipJoint11_R",
+          "lowerLipJoint12_R",
+          "lowerLipJoint1_L",
+          "lowerLipJoint2_L",
+          "lowerLipJoint3_L",
+          "lowerLipJoint4_L",
+          "lowerLipJoint5_L",
+          "lowerLipJoint6_L",
+          "lowerLipJoint7_L",
+          "lowerLipJoint8_L",
+          "lowerLipJoint9_L",
+          "lowerLipJoint10_L",
+          "lowerLipJoint11_L",
+          "lowerLipJoint12_L",
+        ];
+
+        for (let name of jointNames) {
+          let joint = mesh.getObjectByName(name);
+          if (joint) {
+            lipJoints.push(joint);
+          }
+        }
+
+        jawNode = mesh.getObjectByName("JawJoint_M");
+      });
+
+      function animateMouth() {
+        // if (analyser.getAverageFrequency() == 0) return;
+        // angle = analyser.getAverageFrequency() / 100;
+
+        let volume = analyser.getAverageFrequency();
+
+        let targetAngle = Math.min(volume / 150, 0.7);
+
+        angle = angle + (targetAngle - angle) * 0.1;
+
+        if (jawNode) {
+          jawNode.rotation.x = angle;
+        }
+
+        for (let joint of lipJoints) {
+          let match = joint.name.match(/(\d+)/);
+          let index = match ? parseInt(match[0]) : 0;
+
+          let factor = 1 - index * 0.08;
+
+          if (joint.name.includes("upperLip")) {
+            joint.position.y = 0.03 * factor * Math.sin(angle * Math.PI);
+          } else if (joint.name.includes("lowerLip")) {
+            joint.position.y = -0.03 * factor * Math.sin(angle * Math.PI);
+          }
+        }
+
+        requestAnimationFrame(animateMouth);
+      }
     </script>
   </body>
 </html>
