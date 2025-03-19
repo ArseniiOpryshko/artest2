@@ -13,6 +13,28 @@
   </head>
 
   <body style="margin: 0px; overflow: hidden">
+    <button
+      id="unmuteButton"
+      style="
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #ff5722;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      "
+    >
+      Unmute Sound45
+    </button>
+    <audio id="music" preload="auto" style="display: none">
+      <source src="paul.mp3" type="audio/mp3" />
+    </audio>
     <a-scene embedded arjs renderer="logarithmicDepthBuffer: true">
       <a-marker preset="hiro" id="marker">
         <a-entity
@@ -20,7 +42,7 @@
           gltf-model="Idle_Paul.gltf"
           position="0 0 0"
           scale="1 1 1"
-          animation-mixer="clip: StartAr_v2"
+          animation-mixer="clip: Idle_Happy"
           rotation="270 0 0"
         ></a-entity>
       </a-marker>
@@ -32,26 +54,78 @@
       let marker = document.querySelector("#marker");
       let model = document.querySelector("#model");
       let speakBtn = document.getElementById("speakBtn");
+      let unmuteButton = document.getElementById("unmuteButton");
+      let audioElement = document.getElementById("music");
 
-      const listener = new THREE.AudioListener();
-      const sound = new THREE.Audio(listener);
-      const analyser = new THREE.AudioAnalyser(sound, 32);
-      const audioLoader = new THREE.AudioLoader();
+      // const listener = new THREE.AudioListener();
+      // const sound = new THREE.Audio(listener);
+      // const analyser = new THREE.AudioAnalyser(sound, 32);
+      // const audioLoader = new THREE.AudioLoader();
       let isSoundActive = false;
       let animationFrameId;
+      let isMouthAnimating = false;
 
       let jawNode;
       let lipJoints = [];
       let openMouth = false;
       let angle = 0;
 
+      let audioContext;
+      let analyser;
+      let source;
+      let dataArray;
+
+      function setupAudioAnalyser() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          source = audioContext.createMediaElementSource(audioElement);
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 32;
+
+          dataArray = new Uint8Array(analyser.frequencyBinCount);
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+        }
+      }
+
+      unmuteButton.addEventListener("click", () => {
+        isSoundEnabled = true;
+
+        audioElement.onended = () => {
+          isMouthAnimating = false;
+
+          let mixer = model.components["animation-mixer"].mixer;
+          let currentAction = mixer.existingAction("StartAr_v2");
+          let idleAction = mixer.existingAction("Idle_Happy");
+          currentAction.crossFadeTo(idleAction, 1.5, false);
+          idleAction.play();
+        };
+        // audioLoader.load("paul.mp3", function (buffer) {
+        //   sound.setBuffer(buffer);
+        //   sound.setVolume(1.0);
+        //   sound.onEnded = () => {
+        //     isMouthAnimating = false;
+
+        //     let mixer = model.components["animation-mixer"].mixer;
+        //     let currentAction = mixer.existingAction("StartAr_v2");
+        //     let idleAction = mixer.existingAction("Idle_Happy");
+        //     currentAction.crossFadeTo(idleAction, 1.5, false);
+        //     idleAction.play();
+        //   };
+        // });
+        unmuteButton.style.display = "none";
+      });
+
       marker.addEventListener("markerFound", () => {
         isSoundActive = true;
-        audioLoader.load("paul.mp3", function (buffer) {
-          sound.setBuffer(buffer);
-          sound.setVolume(1.0);
-          sound.play();
-        });
+        setupAudioAnalyser();
+
+        audioElement.play();
+
+        // sound.play();
+        isMouthAnimating = true;
+        animateMouth();
 
         function goSound() {
           if (!isSoundActive) return;
@@ -59,18 +133,18 @@
         }
 
         goSound();
-        animateMouth();
-
         model.setAttribute("animation-mixer", "clip: StartAr_v2");
       });
 
       marker.addEventListener("markerLost", () => {
-        isSoundActive = false; // Отключаем анализатор
-        cancelAnimationFrame(animationFrameId); // Останавливаем цикл анализа звука
-        sound.stop(); // Останавливаем воспроизведение аудио
+        isSoundActive = false;
+        // cancelAnimationFrame(animationFrameId);
+        audioElement.pause();
+        audioElement.currentTime = 0;
 
-        // Устанавливаем другую анимацию для модели
-        model.setAttribute("animation-mixer", "clip: Idle_Paul");
+        isMouthAnimating = false;
+
+        model.setAttribute("animation-mixer", "clip: Idle_Happy");
       });
 
       model.addEventListener("model-loaded", () => {
@@ -82,7 +156,7 @@
 
         mesh.traverse((node) => {
           if (node.isMesh) {
-            node.material.map.anisotropy = 16; // Максимальное качество
+            node.material.map.anisotropy = 16;
           }
         });
 
@@ -151,7 +225,10 @@
         // if (analyser.getAverageFrequency() == 0) return;
         // angle = analyser.getAverageFrequency() / 100;
 
-        let volume = analyser.getAverageFrequency();
+        if (!isMouthAnimating) return;
+
+        analyser.getByteFrequencyData(dataArray);
+        let volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
 
         let targetAngle = Math.min(volume / 150, 0.7);
 
