@@ -17,7 +17,6 @@
         overflow: hidden;
       }
 
-      /* Full-screen overlay */
       #overlay {
         position: fixed;
         top: 0;
@@ -31,7 +30,6 @@
         z-index: 2000;
       }
 
-      /* Start button */
       #unmuteButton {
         position: absolute;
         top: 50%;
@@ -58,18 +56,16 @@
       <source src="paul.mp3" type="audio/mp3" />
     </audio>
     <a-scene embedded arjs renderer="logarithmicDepthBuffer: true">
-      <a-marker preset="hiro" id="marker">
-        <a-entity
-          id="model"
-          gltf-model="Idle_Paul.gltf"
-          position="0 0 0"
-          scale="1 1 1"
-          animation-mixer="clip: Idle_Happy"
-          rotation="270 0 0"
-        ></a-entity>
-      </a-marker>
-
-      <a-entity camera></a-entity>
+      <a-marker preset="hiro" id="marker"> </a-marker>
+      <a-entity
+        id="model"
+        gltf-model="Idle_Paul.gltf"
+        position="0 0 0"
+        scale="1 1 1"
+        animation-mixer="clip: Idle_Happy"
+        rotation="270 0 0"
+      ></a-entity>
+      <a-entity camera look-controls></a-entity>
     </a-scene>
 
     <script>
@@ -80,10 +76,6 @@
       let audioElement = document.getElementById("music");
       let overlay = document.getElementById("overlay");
 
-      // const listener = new THREE.AudioListener();
-      // const sound = new THREE.Audio(listener);
-      // const analyser = new THREE.AudioAnalyser(sound, 32);
-      // const audioLoader = new THREE.AudioLoader();
       let isSoundActive = false;
       let animationFrameId;
       let isMouthAnimating = false;
@@ -93,12 +85,39 @@
       let teethJoints = [];
       let openMouth = false;
       let angle = 0;
-      let initialTeethPositions = new Map(); // Сохранение начальных позиций зубов
+      let initialTeethPositions = new Map();
 
       let audioContext;
       let analyser;
       let source;
       let dataArray;
+
+      let modelPlaced = false;
+
+      let velocityZ = 0;
+      let positionZ = 0;
+      let lastTimestamp = null;
+
+      window.addEventListener("devicemotion", (event) => {
+        const acc = event.accelerationIncludingGravity;
+        const now = Date.now();
+
+        if (lastTimestamp) {
+          const dt = (now - lastTimestamp) / 1000; // секунды
+          if (acc && acc.z) {
+            velocityZ += acc.z * dt;
+            positionZ += velocityZ * dt;
+          }
+        }
+
+        lastTimestamp = now;
+
+        // применяем движение к камере
+        const cameraRig = document.querySelector("#cameraRig");
+        if (cameraRig) {
+          cameraRig.object3D.position.z += velocityZ * 0.01; // масштабируем
+        }
+      });
 
       function setupAudioAnalyser() {
         if (!audioContext) {
@@ -132,6 +151,17 @@
       });
 
       marker.addEventListener("markerFound", () => {
+        if (!modelPlaced) {
+          let markerPos = marker.object3D.position.clone();
+          let markerRot = marker.object3D.rotation.clone();
+
+          model.object3D.position.copy(markerPos);
+          model.setAttribute("rotation", "0 0 0");
+          model.setAttribute("visible", true);
+
+          modelPlaced = true;
+        }
+
         isSoundActive = true;
         setupAudioAnalyser();
 
@@ -233,16 +263,16 @@
 
         let teethNames = [
           "upperTeethJoint_M",
-          "Teeth_up", // Верхние зубы
+          "Teeth_up",
           "lowerTeethJoint_M",
-          "Teeth_down", // Нижние зубы
+          "Teeth_down",
         ];
 
         for (let name of teethNames) {
           let joint = mesh.getObjectByName(name);
           if (joint) {
             teethJoints.push(joint);
-            initialTeethPositions.set(joint.name, joint.position.clone()); // Сохраняем начальную позицию
+            initialTeethPositions.set(joint.name, joint.position.clone());
           }
         }
 
@@ -250,9 +280,6 @@
       });
 
       function animateMouth() {
-        // if (analyser.getAverageFrequency() == 0) return;
-        // angle = analyser.getAverageFrequency() / 100;
-
         if (!isMouthAnimating) return;
 
         analyser.getByteFrequencyData(dataArray);
