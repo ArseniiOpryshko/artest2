@@ -48,280 +48,45 @@
   </head>
 
   <body style="margin: 0px; overflow: hidden">
-    <div id="overlay">
-      <button id="unmuteButton">Unmute Sound</button>
-    </div>
-
-    <audio id="music" preload="auto" style="display: none">
-      <source src="paul.mp3" type="audio/mp3" />
-    </audio>
-    <a-scene embedded arjs renderer="logarithmicDepthBuffer: true">
-      <a-marker preset="hiro" id="marker"> </a-marker>
-      <a-entity
-        id="model"
-        gltf-model="Idle_Paul.gltf"
-        position="0 0 0"
-        scale="1 1 1"
-        animation-mixer="clip: Idle_Happy"
-        rotation="270 0 0"
-      ></a-entity>
-      <a-entity camera look-controls></a-entity>
+    <button id="unmuteButton" onclick="initGeolocation()">
+      Разрешить доступ к сенсорам
+    </button>
+    <a-scene
+      vr-mode-ui="enabled: false"
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+      <a-box
+        material="color: red"
+        scale="10 10 10"
+        gps-entity-place="longitude: 21.2581487; latitude: 48.724368;"
+      ></a-box>
+      <a-camera gps-camera rotation-reader> </a-camera>
     </a-scene>
 
     <script>
-      let marker = document.querySelector("#marker");
-      let model = document.querySelector("#model");
-      let speakBtn = document.getElementById("speakBtn");
-      let unmuteButton = document.getElementById("unmuteButton");
-      let audioElement = document.getElementById("music");
-      let overlay = document.getElementById("overlay");
-
-      let isSoundActive = false;
-      let animationFrameId;
-      let isMouthAnimating = false;
-
-      let jawNode;
-      let lipJoints = [];
-      let teethJoints = [];
-      let openMouth = false;
-      let angle = 0;
-      let initialTeethPositions = new Map();
-
-      let audioContext;
-      let analyser;
-      let source;
-      let dataArray;
-
-      let modelPlaced = false;
-
-      let velocityZ = 0;
-      let positionZ = 0;
-      let lastTimestamp = null;
-
-      window.addEventListener("devicemotion", (event) => {
-        const acc = event.accelerationIncludingGravity;
-        const now = Date.now();
-
-        if (lastTimestamp) {
-          const dt = (now - lastTimestamp) / 1000; // секунды
-          if (acc && acc.z) {
-            velocityZ += acc.z * dt;
-            positionZ += velocityZ * dt;
-          }
-        }
-
-        lastTimestamp = now;
-
-        // применяем движение к камере
-        const cameraRig = document.querySelector("#cameraRig");
-        if (cameraRig) {
-          cameraRig.object3D.position.z += velocityZ * 0.01; // масштабируем
-        }
-      });
-
-      function setupAudioAnalyser() {
-        if (!audioContext) {
-          audioContext = new (window.AudioContext ||
-            window.webkitAudioContext)();
-          source = audioContext.createMediaElementSource(audioElement);
-          analyser = audioContext.createAnalyser();
-          analyser.fftSize = 32;
-
-          dataArray = new Uint8Array(analyser.frequencyBinCount);
-          source.connect(analyser);
-          analyser.connect(audioContext.destination);
+      function initGeolocation() {
+        if (navigator.geolocation) {
+          // Call getCurrentPosition with success and failure callbacks
+          navigator.geolocation.getCurrentPosition(success, fail);
+        } else {
+          alert("Sorry, your browser does not support geolocation services.");
         }
       }
 
-      audioElement.addEventListener("ended", () => {
-        isMouthAnimating = false;
+      function success(position) {
+        console.log(position.coords.longitude);
+        console.log(position.coords.latitude);
+        alert(
+          "Longitude: " +
+            position.coords.longitude +
+            " Latitude: " +
+            position.coords.latitude
+        );
+      }
 
-        let mixer = model.components["animation-mixer"].mixer;
-        let currentAction = mixer.existingAction("StartAr_v2");
-        let idleAction = mixer.existingAction("Idle_Happy");
-
-        currentAction.crossFadeTo(idleAction, 1.5, false);
-        idleAction.play();
-      });
-
-      unmuteButton.addEventListener("click", () => {
-        isSoundEnabled = true;
-        unmuteButton.style.display = "none";
-        overlay.style.display = "none";
-      });
-
-      marker.addEventListener("markerFound", () => {
-        if (!modelPlaced) {
-          let markerPos = marker.object3D.position.clone();
-          let markerRot = marker.object3D.rotation.clone();
-
-          model.object3D.position.copy(markerPos);
-          model.setAttribute("rotation", "0 0 0");
-          model.setAttribute("visible", true);
-
-          modelPlaced = true;
-        }
-
-        isSoundActive = true;
-        setupAudioAnalyser();
-
-        audioElement.play();
-
-        isMouthAnimating = true;
-        animateMouth();
-
-        function goSound() {
-          if (!isSoundActive) return;
-          requestAnimationFrame(goSound);
-        }
-
-        goSound();
-        model.setAttribute("animation-mixer", "clip: StartAr_v2");
-      });
-
-      marker.addEventListener("markerLost", () => {
-        isSoundActive = false;
-        cancelAnimationFrame(animationFrameId);
-        audioElement.pause();
-        audioElement.currentTime = 0;
-
-        isMouthAnimating = false;
-
-        model.setAttribute("animation-mixer", "clip: Idle_Happy");
-      });
-
-      model.addEventListener("model-loaded", () => {
-        let mesh = model.getObject3D("mesh");
-        if (!mesh) {
-          console.warn("Модель не загружена!");
-          return;
-        }
-
-        mesh.traverse((node) => {
-          if (node.isMesh) {
-            node.material.map.anisotropy = 16;
-          }
-        });
-
-        let jointNames = [
-          "LipJoints_M",
-          "upperLipJoint0_M",
-          "lowerLipJoint0_M",
-          "JawJoint_M",
-          "upperLipJoint1_R",
-          "upperLipJoint2_R",
-          "upperLipJoint3_R",
-          "upperLipJoint4_R",
-          "upperLipJoint5_R",
-          "upperLipJoint6_R",
-          "upperLipJoint7_R",
-          "upperLipJoint8_R",
-          "upperLipJoint9_R",
-          "upperLipJoint10_R",
-          "upperLipJoint1_L",
-          "upperLipJoint2_L",
-          "upperLipJoint3_L",
-          "upperLipJoint4_L",
-          "upperLipJoint5_L",
-          "upperLipJoint6_L",
-          "upperLipJoint7_L",
-          "upperLipJoint8_L",
-          "upperLipJoint9_L",
-          "upperLipJoint10_L",
-          "lowerLipJoint1_R",
-          "lowerLipJoint2_R",
-          "lowerLipJoint3_R",
-          "lowerLipJoint4_R",
-          "lowerLipJoint5_R",
-          "lowerLipJoint6_R",
-          "lowerLipJoint7_R",
-          "lowerLipJoint8_R",
-          "lowerLipJoint9_R",
-          "lowerLipJoint10_R",
-          "lowerLipJoint11_R",
-          "lowerLipJoint12_R",
-          "lowerLipJoint1_L",
-          "lowerLipJoint2_L",
-          "lowerLipJoint3_L",
-          "lowerLipJoint4_L",
-          "lowerLipJoint5_L",
-          "lowerLipJoint6_L",
-          "lowerLipJoint7_L",
-          "lowerLipJoint8_L",
-          "lowerLipJoint9_L",
-          "lowerLipJoint10_L",
-          "lowerLipJoint11_L",
-          "lowerLipJoint12_L",
-        ];
-
-        for (let name of jointNames) {
-          let joint = mesh.getObjectByName(name);
-          if (joint) {
-            lipJoints.push(joint);
-          }
-        }
-
-        let teethNames = [
-          "upperTeethJoint_M",
-          "Teeth_up",
-          "lowerTeethJoint_M",
-          "Teeth_down",
-        ];
-
-        for (let name of teethNames) {
-          let joint = mesh.getObjectByName(name);
-          if (joint) {
-            teethJoints.push(joint);
-            initialTeethPositions.set(joint.name, joint.position.clone());
-          }
-        }
-
-        jawNode = mesh.getObjectByName("JawJoint_M");
-      });
-
-      function animateMouth() {
-        if (!isMouthAnimating) return;
-
-        analyser.getByteFrequencyData(dataArray);
-        let volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-        let targetAngle = Math.min(volume / 150, 0.7);
-
-        angle = angle + (targetAngle - angle) * 0.1;
-
-        if (jawNode) {
-          jawNode.rotation.x = angle;
-        }
-
-        for (let joint of lipJoints) {
-          let match = joint.name.match(/(\d+)/);
-          let index = match ? parseInt(match[0]) : 0;
-
-          let factor = 1 - index * 0.08;
-
-          if (joint.name.includes("upperLip")) {
-            joint.position.y = 0.03 * factor * Math.sin(angle * Math.PI);
-          } else if (joint.name.includes("lowerLip")) {
-            joint.position.y = -0.03 * factor * Math.sin(angle * Math.PI);
-          }
-        }
-        for (let joint of teethJoints) {
-          let initialPos = initialTeethPositions.get(joint.name);
-          if (!initialPos) continue;
-
-          if (
-            joint.name.includes("upperTeeth") ||
-            joint.name.includes("Teeth_up")
-          ) {
-            joint.position.y = initialPos.y + 0.01 * Math.sin(angle * Math.PI);
-          } else if (
-            joint.name.includes("lowerTeeth") ||
-            joint.name.includes("Teeth_down")
-          ) {
-            joint.position.y = initialPos.y - 0.01 * Math.sin(angle * Math.PI);
-          }
-        }
-        requestAnimationFrame(animateMouth);
+      function fail() {
+        alert("Sorry");
       }
     </script>
   </body>
