@@ -58,7 +58,12 @@
       <source src="paul.mp3" type="audio/mp3" />
     </audio>
     <a-scene embedded arjs renderer="logarithmicDepthBuffer: true">
-      <a-marker preset="hiro" id="marker">
+      <a-marker
+        preset="custom"
+        type="pattern"
+        url="pattern-marker.patt"
+        id="marker"
+      >
         <a-entity
           id="model"
           gltf-model="Idle_Paul.gltf"
@@ -99,8 +104,6 @@
       let analyser;
       let source;
       let dataArray;
-
-      let staticEntity = null;
 
       function setupAudioAnalyser() {
         if (!audioContext) {
@@ -150,32 +153,6 @@
         goSound();
 
         model.setAttribute("animation-mixer", "clip: StartAr_v2");
-
-        if (!staticEntity) {
-          model.object3D.updateMatrixWorld();
-
-          const worldPos = new THREE.Vector3();
-          const worldQuat = new THREE.Quaternion();
-          const worldScale = new THREE.Vector3();
-          model.object3D.matrixWorld.decompose(worldPos, worldQuat, worldScale);
-
-          const originalMesh = model.getObject3D("mesh");
-          if (originalMesh) {
-            const clone = originalMesh.clone(true);
-            clone.position.set(0, 0, 0);
-            clone.rotation.set(0, 0, 0);
-            clone.scale.copy(worldScale);
-
-            const entity = document.createElement("a-entity");
-            entity.setObject3D("mesh", clone);
-            entity.object3D.position.copy(worldPos);
-            entity.object3D.quaternion.copy(worldQuat);
-            entity.object3D.scale.copy(worldScale);
-
-            document.querySelector("a-scene").appendChild(entity);
-            staticEntity = entity;
-          }
-        }
       });
 
       marker.addEventListener("markerLost", () => {
